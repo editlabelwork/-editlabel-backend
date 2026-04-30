@@ -7,7 +7,7 @@
     "test:security": "jest --testPathPattern=security",
     "test:integration": "jest --testPathPattern=integration",
     "build": "tsc",
-    "start": "node dist/src/app.js",
+    "start": "node dist/server.js",
     "dev": "ts-node src/app.ts",
     "dev:watch": "nodemon --exec ts-node src/app.ts",
     "migrate": "prisma migrate dev",

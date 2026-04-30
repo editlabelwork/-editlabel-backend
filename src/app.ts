@@ -103,10 +103,23 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // ROTAS DE API
 // ============================================
 
+console.log('🔍 [DEBUG] Iniciando montagem de rotas...');
+console.log('🔍 [DEBUG] authRoutes:', typeof authRoutes);
+console.log('🔍 [DEBUG] labelsRoutes:', typeof labelsRoutes);
+console.log('🔍 [DEBUG] complianceRoutes:', typeof complianceRoutes);
+console.log('🔍 [DEBUG] lgpdRoutes:', typeof lgpdRoutes);
+
 app.use('/api/auth', authRoutes);
+console.log('✅ [DEBUG] Rota /api/auth montada');
+
 app.use('/api/labels', labelsRoutes);
+console.log('✅ [DEBUG] Rota /api/labels montada');
+
 app.use('/api/compliance', complianceRoutes);
+console.log('✅ [DEBUG] Rota /api/compliance montada');
+
 app.use('/api/lgpd', lgpdRoutes);
+console.log('✅ [DEBUG] Rota /api/lgpd montada');
 
 // ============================================
 // ROTAS DE SAÚDE
@@ -151,7 +164,10 @@ app.get('/health/db', async (req: Request, res: Response) => {
 // ROTAS 404
 // ============================================
 
+console.log('🔍 [DEBUG] Middleware 404 registrado');
+
 app.use((req: Request, res: Response) => {
+  console.log('🔍 [DEBUG] 404 - Rota não encontrada:', req.method, req.path);
   res.status(404).json({
     error: 'Rota não encontrada',
     path: req.path,
