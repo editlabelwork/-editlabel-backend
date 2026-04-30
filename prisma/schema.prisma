@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  PHARMACIST
+  USER
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  labels    Label[]
+}
+
+model Industry {
+  id          String   @id @default(uuid())
+  name        String
+  cnpj        String   @unique
+  address     String?
+  phone       String?
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  labels      Label[]
+}
+
+model Label {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  data        Json     // Stores the label configuration/data
+  status      String   @default("DRAFT") // DRAFT, REVIEW, APPROVED
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  industryId  String
+  industry    Industry @relation(fields: [industryId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
