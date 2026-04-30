@@ -152,10 +152,10 @@ export const createLGPDConsent = (
  */
 export const validateLGPDConsent = (consent: LGPDConsent): boolean => {
   return (
-    consent.consentido &&
-    consent.userId &&
-    consent.dataConsentimento &&
-    consent.versaoPolitica
+    Boolean(consent.consentido) &&
+    Boolean(consent.userId) &&
+    Boolean(consent.dataConsentimento) &&
+    Boolean(consent.versaoPolitica)
   );
 };
 

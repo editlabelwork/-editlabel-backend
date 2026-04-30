@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 export interface AuditLog {
   id: string;
   userId: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'EXPORT' | 'IMPORT';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'EXPORT' | 'IMPORT' | 'VALIDATE' | 'GENERATE' | 'ACCESS';
   entity: string;
   entityId: string;
   changes?: Record<string, { before: any; after: any }>;

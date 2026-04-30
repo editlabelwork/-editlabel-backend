@@ -100,7 +100,7 @@ router.post('/consent', authMiddleware, async (req: Request, res: Response) => {
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'CREATE',
       'Consent',
       consent.id,
@@ -143,10 +143,10 @@ router.get('/my-data', authMiddleware, async (req: Request, res: Response) => {
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'ACCESS',
       'PersonalData',
-      userId,
+      userId || '',
       req.ip || '',
       req.get('user-agent') || '',
       undefined,
@@ -192,7 +192,7 @@ router.post('/data-portability', authMiddleware, async (req: Request, res: Respo
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'CREATE',
       'DataPortabilityRequest',
       request.id,
@@ -245,7 +245,7 @@ router.post('/deletion-request', authMiddleware, async (req: Request, res: Respo
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'CREATE',
       'DeletionRequest',
       request.id,
@@ -293,7 +293,7 @@ router.post('/cancel-deletion', authMiddleware, async (req: Request, res: Respon
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'UPDATE',
       'DeletionRequest',
       requestId,
@@ -360,7 +360,7 @@ router.post('/revoke-consent', authMiddleware, async (req: Request, res: Respons
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'UPDATE',
       'Consent',
       consentId,

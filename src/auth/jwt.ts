@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import { authenticator } from 'otplib';
+import * as speakeasy from 'speakeasy';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key';
@@ -82,16 +82,24 @@ export const verifyPassword = async (password: string, hash: string): Promise<bo
  * Gera secret para 2FA (TOTP)
  */
 export const generate2FASecret = (): { secret: string; qrCode: string } => {
-  const secret = authenticator.generateSecret();
-  const qrCode = authenticator.keyuri('editlabel', 'EditLabel', secret);
-  return { secret, qrCode };
+  const secret = speakeasy.generateSecret({
+    name: 'EditLabel',
+    issuer: 'EditLabel',
+    length: 32
+  });
+  return { secret: secret.base32 || '', qrCode: secret.otpauth_url || '' };
 };
 
 /**
  * Verifica token TOTP (2FA)
  */
 export const verify2FAToken = (secret: string, token: string): boolean => {
-  return authenticator.check(token, secret);
+  return speakeasy.totp.verify({
+    secret,
+    encoding: 'base32',
+    token,
+    window: 2
+  });
 };
 
 /**

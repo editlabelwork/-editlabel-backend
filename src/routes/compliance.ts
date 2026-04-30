@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth';
-import { validateAnvisaCompliance, generateComplianceReport } from '../compliance/anvisa';
+import { validateAnvisaCompliance, generateComplianceReport, AnvisaCompliance } from '../compliance/anvisa';
 import { createAuditLog } from '../security/audit';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.post('/validate', authMiddleware, async (req: Request, res: Response) => 
     }
 
     // Valida conformidade
-    const compliance = validateAnvisaCompliance({
+    const compliance: AnvisaCompliance = validateAnvisaCompliance({
       tipo_suplemento,
       tabelaNutricional,
       alergênicos,
@@ -38,23 +39,47 @@ router.post('/validate', authMiddleware, async (req: Request, res: Response) => 
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'VALIDATE',
       'Compliance',
       'compliance-check',
       req.ip || '',
-      req.get('user-agent') || '',
+      (req.get('user-agent') || ''),
       { tipo_suplemento },
       'SUCCESS'
     );
 
+    // Calcula percentual de conformidade
+    const totalChecks = 3; // RDC 429, RDC 26, Warnings
+    const passedChecks = [compliance.rdc429.valid, compliance.rdc26.valid, compliance.warnings.valid].filter(Boolean).length;
+    const compliancePercentage = (passedChecks / totalChecks) * 100;
+
     res.status(200).json({
-      compliance,
+      valid: compliance.valid,
+      compliance_percentage: compliancePercentage,
+      validations: [
+        {
+          name: 'RDC 429/2020 - Rotulagem Nutricional',
+          passed: compliance.rdc429.valid,
+          errors: compliance.rdc429.errors,
+          warnings: compliance.rdc429.warnings
+        },
+        {
+          name: 'RDC 26/2015 - Alergênicos',
+          passed: compliance.rdc26.valid,
+          errors: compliance.rdc26.errors
+        },
+        {
+          name: 'Advertências Obrigatórias',
+          passed: compliance.warnings.valid,
+          errors: compliance.warnings.errors
+        }
+      ],
       summary: {
-        total_validations: compliance.validations.length,
-        passed: compliance.validations.filter((v: any) => v.passed).length,
-        failed: compliance.validations.filter((v: any) => !v.passed).length,
-        compliance_percentage: compliance.compliance_percentage
+        total_validations: 3,
+        passed: passedChecks,
+        failed: totalChecks - passedChecks,
+        compliance_percentage: compliancePercentage
       }
     });
   } catch (error: any) {
@@ -69,10 +94,10 @@ router.post('/validate', authMiddleware, async (req: Request, res: Response) => 
  */
 router.get('/rdc/:rdc_number', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { rdc_number } = req.params;
+    const { rdc_number } = req.params as { rdc_number: string };
 
     // Mapeamento de RDCs
-    const rdcInfo: any = {
+    const rdcInfo: Record<string, Record<string, any>> = {
       '429': {
         number: '429/2020',
         title: 'Regulamenta a Rotulagem de Alimentos',
@@ -98,27 +123,25 @@ router.get('/rdc/:rdc_number', authMiddleware, async (req: Request, res: Respons
         requirements: [
           'Identificação clara como suplemento',
           'Ingredientes permitidos',
-          'Modo de uso',
-          'Advertências obrigatórias',
-          'Tabela nutricional',
-          'Lote e validade'
+          'Declaração de alergênicos',
+          'Modo de uso recomendado',
+          'Advertências obrigatórias'
         ],
         last_update: '2015-05-25',
-        official_url: 'https://www.in.gov.br/materia/-/asset_publisher/Kujrw0TZC2Mb/content/id/30817949'
+        official_url: 'https://www.in.gov.br/web/dou/-/resolucao-rdc-n-26-de-25-de-maio-de-2015-17975826'
       },
       '657': {
         number: '657/2022',
-        title: 'Software como Dispositivo Médico',
-        description: 'Regulamenta software como dispositivo médico',
+        title: 'Regulamenta Software Médico (SaMD)',
+        description: 'Define os requisitos para software de uso médico',
         requirements: [
+          'Classificação de risco',
           'Documentação técnica',
           'Testes de segurança',
-          'Validação de funcionalidades',
-          'Rastreabilidade',
-          'Conformidade com padrões internacionais'
+          'Rastreabilidade'
         ],
-        last_update: '2022-09-23',
-        official_url: 'https://www.in.gov.br/web/dou/-/resolucao-rdc-n-657-de-23-de-setembro-de-2022-432923302'
+        last_update: '2022-11-23',
+        official_url: 'https://www.in.gov.br/web/dou/-/resolucao-rdc-n-657-de-23-de-novembro-de-2022-442618919'
       }
     };
 
@@ -128,18 +151,16 @@ router.get('/rdc/:rdc_number', authMiddleware, async (req: Request, res: Respons
       return;
     }
 
-    res.status(200).json({
-      rdc: info
-    });
+    res.status(200).json(info);
   } catch (error: any) {
-    console.error('Erro ao obter RDC:', error);
+    console.error('Erro ao obter informações da RDC:', error);
     res.status(500).json({ error: 'Erro ao obter informações da RDC' });
   }
 });
 
 /**
  * GET /api/compliance/rdcs
- * Lista todas as RDCs relevantes
+ * Lista todas as RDCs suportadas
  */
 router.get('/rdcs', authMiddleware, async (req: Request, res: Response) => {
   try {
@@ -147,30 +168,17 @@ router.get('/rdcs', authMiddleware, async (req: Request, res: Response) => {
       {
         number: '429/2020',
         title: 'Rotulagem de Alimentos',
-        description: 'Requisitos para rotulagem de alimentos embalados',
-        type: 'food_labeling',
-        status: 'active'
+        scope: 'Alimentos embalados'
       },
       {
         number: '26/2015',
         title: 'Suplementos Alimentares',
-        description: 'Requisitos para suplementos alimentares',
-        type: 'supplements',
-        status: 'active'
+        scope: 'Suplementos alimentares'
       },
       {
         number: '657/2022',
-        title: 'Software como Dispositivo Médico',
-        description: 'Regulamenta software como dispositivo médico',
-        type: 'software_medical_device',
-        status: 'active'
-      },
-      {
-        number: '259/2002',
-        title: 'Regulamento Técnico sobre Rotulagem de Alimentos Embalados',
-        description: 'Requisitos técnicos para rotulagem',
-        type: 'labeling',
-        status: 'superseded'
+        title: 'Software Médico (SaMD)',
+        scope: 'Softwares de uso médico'
       }
     ];
 
@@ -186,40 +194,82 @@ router.get('/rdcs', authMiddleware, async (req: Request, res: Response) => {
 
 /**
  * POST /api/compliance/generate-report
- * Gera relatório de conformidade completo
+ * Gera relatório de conformidade
  */
 router.post('/generate-report', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const { labelId, compliance } = req.body;
+    const {
+      labelId,
+      tipo_suplemento,
+      tabelaNutricional,
+      alergênicos,
+      advertências,
+      ingredientes,
+      modo_uso
+    } = req.body;
 
-    if (!labelId || !compliance) {
-      res.status(400).json({ error: 'labelId e compliance são obrigatórios' });
+    if (!labelId || !tipo_suplemento) {
+      res.status(400).json({ error: 'labelId e tipo_suplemento são obrigatórios' });
       return;
     }
 
+    // Valida conformidade
+    const compliance: AnvisaCompliance = validateAnvisaCompliance({
+      tipo_suplemento,
+      tabelaNutricional,
+      alergênicos,
+      advertências,
+      ingredientes,
+      modo_uso
+    });
+
     // Gera relatório
-    const report = generateComplianceReport(labelId, compliance);
+    const reportText = generateComplianceReport(labelId, compliance);
+
+    // Calcula percentual
+    const totalChecks = 3;
+    const passedChecks = [compliance.rdc429.valid, compliance.rdc26.valid, compliance.warnings.valid].filter(Boolean).length;
+    const compliancePercentage = (passedChecks / totalChecks) * 100;
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'GENERATE',
       'ComplianceReport',
       labelId,
       req.ip || '',
-      req.get('user-agent') || '',
-      undefined,
+      (req.get('user-agent') || ''),
+      { tipo_suplemento },
       'SUCCESS'
     );
 
     res.status(200).json({
-      reportId: report.id,
-      labelId,
-      compliance_percentage: report.compliance_percentage,
-      validations: report.validations,
-      recommendations: report.recommendations,
-      generated_at: report.generated_at
+      report: {
+        id: uuidv4(),
+        label_id: labelId,
+        compliance_percentage: compliancePercentage,
+        validations: [
+          {
+            name: 'RDC 429/2020',
+            passed: compliance.rdc429.valid,
+            errors: compliance.rdc429.errors
+          },
+          {
+            name: 'RDC 26/2015',
+            passed: compliance.rdc26.valid,
+            errors: compliance.rdc26.errors
+          },
+          {
+            name: 'Advertências',
+            passed: compliance.warnings.valid,
+            errors: compliance.warnings.errors
+          }
+        ],
+        recommendations: compliance.overallErrors.map(error => `Corrigir: ${error}`),
+        generated_at: new Date().toISOString(),
+        report_text: reportText
+      }
     });
   } catch (error: any) {
     console.error('Erro ao gerar relatório:', error);
@@ -229,46 +279,45 @@ router.post('/generate-report', authMiddleware, async (req: Request, res: Respon
 
 /**
  * GET /api/compliance/calculator/rdc429
- * Calculadora RDC 429
+ * Calculadora de conformidade RDC 429
  */
 router.get('/calculator/rdc429', authMiddleware, async (req: Request, res: Response) => {
   try {
     const calculator = {
-      name: 'Calculadora RDC 429/2020',
-      description: 'Calcula conformidade com RDC 429/2020',
+      title: 'Calculadora de Conformidade RDC 429/2020',
       fields: [
         {
-          name: 'denominacao',
-          label: 'Denominação do Produto',
-          type: 'text',
-          required: true
+          name: 'valor_energetico',
+          label: 'Valor Energético (kcal)',
+          required: true,
+          unit: 'kcal'
         },
         {
-          name: 'ingredientes',
-          label: 'Lista de Ingredientes',
-          type: 'textarea',
-          required: true
+          name: 'carboidratos',
+          label: 'Carboidratos',
+          required: true,
+          unit: 'g'
         },
         {
-          name: 'alergênicos',
-          label: 'Alergênicos',
-          type: 'multiselect',
-          options: ['Glúten', 'Leite', 'Ovos', 'Amendoim', 'Castanha', 'Soja', 'Peixe', 'Crustáceo'],
-          required: true
+          name: 'proteinas',
+          label: 'Proteínas',
+          required: true,
+          unit: 'g'
         },
         {
-          name: 'conteudo_liquido',
-          label: 'Conteúdo Líquido',
-          type: 'text',
-          required: true
+          name: 'gorduras_totais',
+          label: 'Gorduras Totais',
+          required: true,
+          unit: 'g'
         },
         {
-          name: 'tabela_nutricional',
-          label: 'Tabela Nutricional',
-          type: 'table',
-          required: true
+          name: 'sodio',
+          label: 'Sódio',
+          required: true,
+          unit: 'mg'
         }
-      ]
+      ],
+      instructions: 'Preencha os campos acima com os valores nutricionais do seu produto'
     };
 
     res.status(200).json(calculator);

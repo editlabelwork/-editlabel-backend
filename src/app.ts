@@ -5,6 +5,12 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
+// Rotas
+import authRoutes from './routes/auth';
+import labelsRoutes from './routes/labels';
+import complianceRoutes from './routes/compliance';
+import lgpdRoutes from './routes/lgpd';
+
 // Carregar variáveis de ambiente
 dotenv.config();
 
@@ -92,6 +98,15 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   next();
 });
+
+// ============================================
+// ROTAS DE API
+// ============================================
+
+app.use('/api/auth', authRoutes);
+app.use('/api/labels', labelsRoutes);
+app.use('/api/compliance', complianceRoutes);
+app.use('/api/lgpd', lgpdRoutes);
 
 // ============================================
 // ROTAS DE SAÚDE

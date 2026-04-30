@@ -96,7 +96,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'CREATE',
       'Label',
       newLabel.id,
@@ -122,8 +122,8 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
  */
 router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const userId = req.user?.userId;
+    const { id } = req.params as { id: string };
+    const userId = req.user?.userId || '';
     const updates = req.body;
 
     const labelIndex = labels.findIndex(l => l.id === id && l.user_id === userId);
@@ -151,12 +151,12 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'UPDATE',
       'Label',
       id,
       req.ip || '',
-      req.get('user-agent') || '',
+      (req.get('user-agent') || ''),
       updates,
       'SUCCESS'
     );
@@ -177,7 +177,7 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
  */
 router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const userId = req.user?.userId;
 
     const labelIndex = labels.findIndex(l => l.id === id && l.user_id === userId);
@@ -190,12 +190,12 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
 
     // Log de auditoria
     createAuditLog(
-      userId,
+      userId || '',
       'DELETE',
       'Label',
       id,
       req.ip || '',
-      req.get('user-agent') || '',
+      (req.get('user-agent') || ''),
       undefined,
       'SUCCESS'
     );
@@ -216,7 +216,7 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
  */
 router.get('/:id/compliance', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const userId = req.user?.userId;
 
     const label = labels.find(l => l.id === id && l.user_id === userId);
