@@ -1,41 +1,30 @@
 version: '3.8'
 
 services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/editlabel?schema=public
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_EXPIRES_IN=1d
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - CORS_ORIGIN=${CORS_ORIGIN}
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    command: sh -c "npx prisma migrate deploy && npm start"
-
-  db:
+  postgres:
     image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: editlabel
+      POSTGRES_PASSWORD: editlabel123
+      POSTGRES_DB: editlabel
     ports:
       - "5432:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=editlabel
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+      - ./src/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  backend:
+    build: .
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://editlabel:editlabel123@postgres:5432/editlabel
+      JWT_SECRET: your-secret-key-here
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    command: npm start
 
 volumes:
   postgres_data:
