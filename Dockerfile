@@ -11,7 +11,7 @@ RUN npm ci
 COPY . .
 
 # Generate Prisma client and build TypeScript
-RUN DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy npx prisma generate
+RUN npx prisma generate
 RUN npm run build
 
 # Production image
